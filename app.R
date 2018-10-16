@@ -46,10 +46,17 @@ ckanUniques <- function(field) {
   c(ckanSQL(URLencode(url2)))
 }
 
+# Grab the unique values for the 4 inputs
+borough <- sort(ckanUniques("City-Government/Parks-Zones/rjaj-zgq7", "BOROUGH")$BOROUGH)
+communityb <- sort(ckanUniques("City-Government/Parks-Zones/rjaj-zgq7", "COMMUNITYB")$COMMUNITYB)
+health <- sort(ckanUniques("Environment/2015-Street-Tree-Census-Tree-Data/pi5s-9p35", "health")$health)
+treedbh<- sort(ckanUniques("Environment/2015-Street-Tree-Census-Tree-Data/pi5s-9p35", "tree_dbh")$tree_dbh)
+
+
 
 
 # Define UI for application
-ui <- navbarPage("NYC Subway Entrances",
+ui <- navbarPage("NYC Trees and Parks",
                  theme = shinytheme("united"),
                  tabPanel("Map",
                           sidebarLayout(
