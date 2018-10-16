@@ -34,11 +34,16 @@ ckanSQL <- function(url) {
   data.frame(jsonlite::fromJSON(json)$result$records)
 }
 
-
+# Unique values for Resource Field
 # Data Source: https://data.cityofnewyork.us/City-Government/Parks-Zones/rjaj-zgq7
 ckanUniques <- function(field) {
   url <- paste0("https://data.cityofnewyork.us/resource/uyfj-5xid.json?$select=", field, "&$group=", field)
   c(ckanSQL(URLencode(url)))
+}
+# Data Source: https://data.cityofnewyork.us/Environment/2015-Street-Tree-Census-Tree-Data/pi5s-9p35
+ckanUniques <- function(field) {
+  url2 <- paste0("https://data.cityofnewyork.us/resource/5rq2-4hqu.json?$select=", field, "&$group=", field)
+  c(ckanSQL(URLencode(url2)))
 }
 
 
