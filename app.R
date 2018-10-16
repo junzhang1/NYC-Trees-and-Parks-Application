@@ -191,12 +191,50 @@ server <- function(input, output,session = session) {
     subset(dat311b, select = c(tree_id,tree_dbh,health,spc_common,address,zipcode,Latitude,longitude,))
   })
   
+  # Map
+  output$leaflet <- renderLeaflet({
+    # Load green infrastructure filtered data
+    map1 <- load311()
+    
+    # Build Map
+    leaflet() %>%
+      addProviderTiles(providers$Wikimedia, group = "Base", options = providerTileOptions(noWrap = TRUE)) %>%
+      addProviderTiles(providers$Stamen.TonerLite, group = "TonerLite", options = providerTileOptions(noWrap = TRUE)) %>%
+      addLayersControl(
+        baseGroups = c("Base", "TonerLite"),
+        options = layersControlOptions(collapsed = FALSE))%>%
+      setView(-73.0000, 40.4680, 10)%>%
+      # Add points "trees".
+      addMarkers(data = map1)%>%
+      # Add polygons "parks".
+      addPolygons(data = map1,color=~pal(PROPNAME))
+    
+  })
+  
+
+  
   # Download data in the datatable
   output$downloadData <- downloadHandler(
     filename = function() {
-      paste("city-of-pittsburgh-trees-", Sys.Date(), ".csv", sep="")
+      paste("NYC-trees-parks", Sys.Date(), ".csv", sep="")
     },
     content = function(file) {
-      write.csv(load311(), file)
+      write.csv(load311b(), file)
     }
   )
+  
+  # Reset Filter Data
+  observeEvent(input$reset, {
+    updateSelectInput(session, "BoroughSelect", selected = c("Queens", "Brooklyn", "Manhattan"))
+    updateSliderInput(session, "AcresSelect", value = c(min(as.numeric(acres), na.rm=T), max(as.numeric(acres), na.rm=T)))
+    updateSliderInput(session, "DBHSelect", value = c(min(as.numeric(treedbh), na.rm=T), max(as.numeric(treedbh), na.rm=T)))
+    updateCheckboxGroupInput(session, "HealthSelect", selected = c("Fair","Good"))
+    showNotification("You have successfully reset the filters", type = "message")
+  })
+}
+
+
+
+
+# Run the application 
+shinyApp(ui = ui, server = server, enableBookmarking = "url")
