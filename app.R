@@ -31,28 +31,25 @@ ckanSQL <- function(url) {
   # Basic gsub to make NA's consistent with R
   json <- gsub('NaN', 'NA', c, perl = TRUE)
   # Create Dataframe
-  data.frame(jsonlite::fromJSON(json)$result$records)
+  # print(json)
+  data.frame(jsonlite::fromJSON(json))
 }
 
 # Unique values for Resource Field
 # Data Source: https://data.cityofnewyork.us/City-Government/Parks-Zones/rjaj-zgq7
-ckanUniques <- function(field) {
-  url <- paste0("https://data.cityofnewyork.us/resource/uyfj-5xid.json?$select=", field, "&$group=", field)
+# Data Source: https://data.cityofnewyork.us/Environment/2015-Street-Tree-Census-Tree-Data/pi5s-9p35
+ckanUniques <- function(resource, field) {
+  url <- paste0("https://data.cityofnewyork.us/resource/", resource, ".json?$select=", field, "&$group=", field)
+  # print(url)
   c(ckanSQL(URLencode(url)))
 }
-# Data Source: https://data.cityofnewyork.us/Environment/2015-Street-Tree-Census-Tree-Data/pi5s-9p35
-ckanUniques <- function(field) {
-  url2 <- paste0("https://data.cityofnewyork.us/resource/5rq2-4hqu.json?$select=", field, "&$group=", field)
-  c(ckanSQL(URLencode(url2)))
-}
+
 
 # Grab the unique values for the 4 inputs
-borough <- sort(ckanUniques("City-Government/Parks-Zones/rjaj-zgq7", "BOROUGH")$BOROUGH)
-communityb <- sort(ckanUniques("City-Government/Parks-Zones/rjaj-zgq7", "COMMUNITYB")$COMMUNITYB)
-health <- sort(ckanUniques("Environment/2015-Street-Tree-Census-Tree-Data/pi5s-9p35", "health")$health)
-treedbh<- sort(ckanUniques("Environment/2015-Street-Tree-Census-Tree-Data/pi5s-9p35", "tree_dbh")$tree_dbh)
-
-
+borough <- sort(ckanUniques("8ph2-z4iu", "BOROUGH")$BOROUGH)
+acres <- sort(ckanUniques("8ph2-z4iu", "ACRES")$ACRES)
+health <- sort(ckanUniques("5rq2-4hqu", "health")$health)
+treedbh<- sort(ckanUniques("5rq2-4hqu", "tree_dbh")$tree_dbh)
 
 
 # Define UI for application
@@ -61,12 +58,12 @@ ui <- navbarPage("NYC Trees and Parks",
                  tabPanel("Map",
                           sidebarLayout(
                             sidebarPanel(
-                              selectInput("sewerSelect",
-                                          "Sewer Type",
-                                          levels(greenInf.load$sewer_type),
-                                          selected = c("MS4", "Non-combined"),
-                                          selectize = T,
-                                          multiple = T),
+                              selectInput("BoroughSelect",
+                                          "Borough:",
+                                          choices = borough[borough!= ""],
+                                          multiple = TRUE,
+                                          selectize = TRUE,
+                                          selected = c("Oak: Bur", "Linden: Silver", "Oak: Northern Red")),
                               radioButtons("boroSelect",
                                            "Borough Filter:",
                                            choices = levels(greenInf.load$borough),
