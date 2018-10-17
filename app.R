@@ -1,11 +1,9 @@
-#
-# This is a Shiny web application. You can run the application by clicking
-# the 'Run App' button above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    http://shiny.rstudio.com/
-#
+# Jun Zhang's project 2
+# The application is about NYC trees and parks. I used two data, trees data and parks data, to build the app.
+# There're three pages, a map where users can find parks area and trees in NYC, and they can customerize the map by selecting
+# boroughs and tree diameter at breast height (d.b.h.). The second page consists of two plots showing distribution of tree
+# diameter at breast height by species and health condition by species. Users can customerize the plots by selecting health
+# condition and council district. The third page is a table. The data are extracted from trees data, and users can download them.
 
 library(shiny)
 library(shinythemes)
@@ -66,7 +64,7 @@ borough <- borough %>%
     ))
 
 # Define UI for application
-ui <- navbarPage("NYC Trees and Parks",
+ui <- navbarPage("NYC Trees and Parks Zones",
                  theme = shinytheme("united"),
                  tabPanel("Map",
                           sidebarLayout(
@@ -92,7 +90,7 @@ ui <- navbarPage("NYC Trees and Parks",
                             mainPanel(
                               # Style the background and change the page
                               tags$style(type = "text/css", ".leaflet {height: calc(100vh - 90px) !important;}
-                                         body {background-color: #D4EFDF;}"),
+                                         body {background-color: #c0d8f7;}"),
                               # Map Output
                               leafletOutput("leaflet")
                               )
@@ -131,7 +129,7 @@ ui <- navbarPage("NYC Trees and Parks",
                  # Data Table
                  tabPanel("Table",
                           inputPanel(
-                            downloadButton("downloadData","Download NYC Trees and Parks Data")
+                            downloadButton("downloadData","Download NYC Trees and Parks Zones Data")
                           ),
                           fluidPage(DT::dataTableOutput("table"))
                  )
@@ -142,7 +140,6 @@ server <- function(input, output,session = session) {
   load311 <- reactive({
     
     # Build API Query with proper encodes
-    # boroughFilter <- ifelse(length(input$BoroughSelect) > 0, paste0("%20AND%20%22BOROUGH%22%20IN%20(%27", paste0(gsub(" " ,"%20", input$BoroughSelect), collapse = "%27,%27"), "%27)"), "")
     if (length(input$BoroughSelect) > 0) {
       borough_abrv <- input$BoroughSelect %>%
       as_tibble() %>%
@@ -162,10 +159,7 @@ server <- function(input, output,session = session) {
     }
     
     
-    #boroughFilter <- ifelse(length(j) > 0, paste0("%20AND%20BOROUGH%20IN%20(%27", paste0(gsub(" " ,"%20", input$BoroughSelect), collapse = "%27,%27"), "%27)"), "")
-    # url <- paste0("https://data.cityofnewyork.us/resource/8ph2-z4iu.geojson?$query=SELECT%20GISPROPNUM,the_geom,PROPNAME,SITENAME,LOCATION,ACRES,SUBCATEGOR,BOROUGH%20WHERE%20RETIRED=%27False%27AND%20ACRES >= '", input$AcresSelect[1], "' AND ACRES <= '", input$AcresSelect[2], "'", boroughFilter)
     url <- paste0("https://data.cityofnewyork.us/resource/8ph2-z4iu.geojson?$query=SELECT%20GISPROPNUM,the_geom,PROPNAME,SITENAME,LOCATION,ACRES,SUBCATEGOR,BOROUGH%20WHERE%20RETIRED=%27False%27", boroughFilter)
-
     url <- gsub(" ", "%20", url)
     print(url)
     
@@ -189,7 +183,6 @@ server <- function(input, output,session = session) {
   
   load311b <- reactive({
     # Build API Query with proper encodes
-    # If I don't add the filter the url works.
     healthFilter <- ifelse(length(input$HealthSelect) > 0, paste0("%20AND%20health%20IN%20(%27", paste0(gsub(" " ,"%20", input$HealthSelect), collapse = "%27,%27"), "%27)"), "")
     url2 <- paste0("https://data.cityofnewyork.us/resource/5rq2-4hqu.json?$query=SELECT%20created_at,tree_id,block_id,boroname,tree_dbh,health,spc_latin,spc_common,problems,address,zipcode,zip_city,state,cncldist,Latitude,longitude,x_sp,y_sp%20WHERE%20curb_loc=%27OnCurb%27AND%20status=%27Alive%27AND%20tree_dbh >= '", input$DBHSelect[1], "' AND tree_dbh <= '", input$DBHSelect[2], "'AND%20cncldist >= '", input$CncldistSelect[1], "' AND cncldist <= '", input$CncldistSelect[2], "'", healthFilter)
     print(url2)
@@ -248,10 +241,7 @@ server <- function(input, output,session = session) {
     # Load green infrastructure filtered data
     map1 <- load311()
     map2 <- load311b()
-    
-    # for (i in 1:ncol(map2)) {
-    #   print(typeof(map2[,i]))
-    # }
+
     # Build Map
     leaflet() %>%
       addProviderTiles(providers$Wikimedia, group = "Base", options = providerTileOptions(noWrap = TRUE)) %>%
@@ -263,7 +253,8 @@ server <- function(input, output,session = session) {
       # Add points "trees".
       addMarkers(data = map2) %>%
       # Add polygons "parks".
-      addPolygons(data = map1)#,color=~pal(PROPNAME))
+      addPolygons(data = map1,color=~pal(PROPNAME))
+      # addPolygons(data = map1)#,color=~pal(PROPNAME))
     
   })
   
@@ -291,8 +282,6 @@ server <- function(input, output,session = session) {
     showNotification("You have successfully reset the filters", type = "message")
   })
 }
-
-
 
 
 # Run the application 
