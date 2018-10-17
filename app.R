@@ -22,6 +22,7 @@ library(scales)
 library(httr)
 library(jsonlite)
 library(htmltools)
+library(sf)
 
 ckanSQL <- function(url) {
   # Make the Request
@@ -47,7 +48,7 @@ ckanUniques <- function(resource, field) {
 
 # Grab the unique values for the 4 inputs
 borough <- sort(ckanUniques("8ph2-z4iu", "BOROUGH")$BOROUGH)
-acres <- sort(ckanUniques("8ph2-z4iu", "ACRES")$ACRES)
+cncldist <- sort(ckanUniques("5rq2-4hqu", "cncldist")$cncldist)
 health <- sort(ckanUniques("5rq2-4hqu", "health")$health)
 treedbh<- sort(ckanUniques("5rq2-4hqu", "tree_dbh")$tree_dbh)
 
@@ -72,21 +73,21 @@ ui <- navbarPage("NYC Trees and Parks",
                             sidebarPanel(
                               # Borough select
                               selectInput("BoroughSelect",
-                                          "Borough:",
+                                          "Borough for Parks:",
                                           choices = borough$BOROUGH,
                                           multiple = TRUE,
                                           selectize = TRUE,
                                           selected = c("Queens", "Brooklyn", "Manhattan")),
-                              # Acres select
-                              sliderInput("AcresSelect",
-                                          "Acres:",
-                                          min = min(as.numeric(acres), na.rm=T),
-                                          max = max(as.numeric(acres), na.rm=T),
-                                          value = c(min(as.numeric(acres), na.rm=T), max(as.numeric(acres), na.rm=T)),
+                              # Tree Diameter at Breast Height Select
+                              sliderInput("DBHSelect",
+                                          "Tree Diameter at Breast Height:",
+                                          min = min(as.numeric(treedbh), na.rm=T),
+                                          max = max(as.numeric(treedbh), na.rm=T),
+                                          value = c(min(as.numeric(treedbh), na.rm=T), max(as.numeric(treedbh), na.rm=T)),
                                           step = 1),
 
                               # Reset select
-                              actionButton("reset", "Reset Filters", icon = icon("refresh"))
+                              actionButton("reset1", "Reset Filters", icon = icon("refresh"))
                             ),
                             mainPanel(
                               # Style the background and change the page
@@ -106,16 +107,16 @@ ui <- navbarPage("NYC Trees and Parks",
                               checkboxGroupInput("HealthSelect", "Health:",
                                                  choices = health,
                                                  selected = c("Fair","Good")),
-                              # Tree Diameter at Breast Height Select
-                              sliderInput("DBHSelect",
-                                          "Tree DBH:",
-                                          min = min(as.numeric(treedbh), na.rm=T),
-                                          max = max(as.numeric(treedbh), na.rm=T),
-                                          value = c(min(as.numeric(treedbh), na.rm=T), max(as.numeric(treedbh), na.rm=T)),
+                              # Council District select
+                              sliderInput("CncldistSelect",
+                                          "Council District:",
+                                          min = min(as.numeric(cncldist), na.rm=T),
+                                          max = max(as.numeric(cncldist), na.rm=T),
+                                          value = c(min(as.numeric(cncldist), na.rm=T), max(as.numeric(cncldist), na.rm=T)),
                                           step = 1),
 
                               # Reset select
-                              actionButton("reset", "Reset Filters", icon = icon("refresh"))
+                              actionButton("reset2", "Reset Filters", icon = icon("refresh"))
                             ),
                             mainPanel(
                               plotlyOutput("plot_dbh"),
@@ -141,14 +142,36 @@ server <- function(input, output,session = session) {
   load311 <- reactive({
     
     # Build API Query with proper encodes
-    # If I don't add the filter the url works.
-    boroughFilter <- ifelse(length(input$BoroughSelect) > 0, paste0("%20AND%20%22BOROUGH%22%20IN%20(%27", paste0(gsub(" " ,"%20", input$BoroughSelect), collapse = "%27,%27"), "%27)"), "")
-    url <- paste0("https://data.cityofnewyork.us/resource/8ph2-z4iu.geojson?$query=SELECT%20GISPROPNUM,the_geom,PROPNAME,SITENAME,LOCATION,ACRES,SUBCATEGOR,BOROUGH%20WHERE%20RETIRED=%27False%27AND%20ACRES >= '", input$AcresSelect[1], "' AND ACRES <= '", input$AcresSelect[2], "'", boroughFilter)
+    # boroughFilter <- ifelse(length(input$BoroughSelect) > 0, paste0("%20AND%20%22BOROUGH%22%20IN%20(%27", paste0(gsub(" " ,"%20", input$BoroughSelect), collapse = "%27,%27"), "%27)"), "")
+    if (length(input$BoroughSelect) > 0) {
+      borough_abrv <- input$BoroughSelect %>%
+      as_tibble() %>%
+      mutate(
+        abrv_borough = case_when(
+          value == 'Queens' ~ 'Q',
+          value == 'Brooklyn' ~ 'B',
+          value == 'Manhattan' ~ 'M',
+          value == 'Bronx' ~ 'X',
+          value == 'Staten Island' ~ 'R'
+        )
+      )
+      
+      boroughFilter <- paste0("%20AND%20BOROUGH%20IN%20(%27", paste0(borough_abrv$abrv_borough, collapse = "','"), "')")
+    } else {
+      boroughFilter <- ""
+    }
+    
+    
+    #boroughFilter <- ifelse(length(j) > 0, paste0("%20AND%20BOROUGH%20IN%20(%27", paste0(gsub(" " ,"%20", input$BoroughSelect), collapse = "%27,%27"), "%27)"), "")
+    # url <- paste0("https://data.cityofnewyork.us/resource/8ph2-z4iu.geojson?$query=SELECT%20GISPROPNUM,the_geom,PROPNAME,SITENAME,LOCATION,ACRES,SUBCATEGOR,BOROUGH%20WHERE%20RETIRED=%27False%27AND%20ACRES >= '", input$AcresSelect[1], "' AND ACRES <= '", input$AcresSelect[2], "'", boroughFilter)
+    url <- paste0("https://data.cityofnewyork.us/resource/8ph2-z4iu.geojson?$query=SELECT%20GISPROPNUM,the_geom,PROPNAME,SITENAME,LOCATION,ACRES,SUBCATEGOR,BOROUGH%20WHERE%20RETIRED=%27False%27", boroughFilter)
 
+    url <- gsub(" ", "%20", url)
     print(url)
     
     # Load and clean data
-    dat311 <- ckanSQL(url) %>%
+    dat311 <- readOGR(url) %>%
+      sf::st_as_sf(.) %>%
       mutate(
         # Change borough to full text
         BOROUGH = case_when(
@@ -167,19 +190,24 @@ server <- function(input, output,session = session) {
   load311b <- reactive({
     # Build API Query with proper encodes
     # If I don't add the filter the url works.
-    healthFilter <- ifelse(length(input$HealthSelect) > 0, paste0("%20AND%20%22health%22%20IN%20(%27", paste0(gsub(" " ,"%20", input$HealthSelect), collapse = "%27,%27"), "%27)"), "")
-    url2 <- paste0("https://data.cityofnewyork.us/resource/5rq2-4hqu.geojson?$query=SELECT%20created_at,tree_id,block_id,tree_dbh,health,spc_latin,spc_common,problems,address,zipcode,zip_city,state,Latitude,longitude,x_sp,y_sp%20WHERE%20curb_loc=%27OnCurb%27AND%20status=%27Alive%27AND%20tree_dbh >= '", input$DBHSelect[1], "' AND tree_dbh <= '", input$DBHSelect[2], "'", healthFilter)
+    healthFilter <- ifelse(length(input$HealthSelect) > 0, paste0("%20AND%20health%20IN%20(%27", paste0(gsub(" " ,"%20", input$HealthSelect), collapse = "%27,%27"), "%27)"), "")
+    url2 <- paste0("https://data.cityofnewyork.us/resource/5rq2-4hqu.json?$query=SELECT%20created_at,tree_id,block_id,boroname,tree_dbh,health,spc_latin,spc_common,problems,address,zipcode,zip_city,state,cncldist,Latitude,longitude,x_sp,y_sp%20WHERE%20curb_loc=%27OnCurb%27AND%20status=%27Alive%27AND%20tree_dbh >= '", input$DBHSelect[1], "' AND tree_dbh <= '", input$DBHSelect[2], "'AND%20cncldist >= '", input$CncldistSelect[1], "' AND cncldist <= '", input$CncldistSelect[2], "'", healthFilter)
     print(url2)
+    
+    url2 <- gsub(" ", "%20", url2)
     
     # Load and mutate data
     dat311b <-ckanSQL(url2) %>%
       mutate(
              tree_dbh = as.numeric(tree_dbh),
              tree_id = as.factor(tree_id),
-             spc_common = as.character(spc_common))
+             spc_common = as.character(spc_common),
+             longitude = as.numeric(longitude),
+             Latitude = as.numeric(Latitude)
+      )
+    
     return(dat311b)
-  }
-  )
+  })
   
   # Reactive melted data
   meltInput <- reactive({
@@ -220,22 +248,26 @@ server <- function(input, output,session = session) {
     # Load green infrastructure filtered data
     map1 <- load311()
     map2 <- load311b()
+    
+    # for (i in 1:ncol(map2)) {
+    #   print(typeof(map2[,i]))
+    # }
     # Build Map
     leaflet() %>%
       addProviderTiles(providers$Wikimedia, group = "Base", options = providerTileOptions(noWrap = TRUE)) %>%
       addProviderTiles(providers$Stamen.TonerLite, group = "TonerLite", options = providerTileOptions(noWrap = TRUE)) %>%
       addLayersControl(
         baseGroups = c("Base", "TonerLite"),
-        options = layersControlOptions(collapsed = FALSE))%>%
+        options = layersControlOptions(collapsed = FALSE)) %>%
     
       # Add points "trees".
-      # addMarkers(data = map2)%>%
+      addMarkers(data = map2) %>%
       # Add polygons "parks".
-      addPolygons(data = map1,color=~pal(PROPNAME))
+      addPolygons(data = map1)#,color=~pal(PROPNAME))
     
   })
   
-
+  
   # Download data in the datatable
   output$downloadData <- downloadHandler(
     filename = function() {
@@ -247,10 +279,14 @@ server <- function(input, output,session = session) {
   )
   
   # Reset Filter Data
-  observeEvent(input$reset, {
+  observeEvent(input$reset1, {
     updateSelectInput(session, "BoroughSelect", selected = c("Queens", "Brooklyn", "Manhattan"))
-    updateSliderInput(session, "AcresSelect", value = c(min(as.numeric(acres), na.rm=T), max(as.numeric(acres), na.rm=T)))
     updateSliderInput(session, "DBHSelect", value = c(min(as.numeric(treedbh), na.rm=T), max(as.numeric(treedbh), na.rm=T)))
+    showNotification("You have successfully reset the filters", type = "message")
+  })
+  # Reset Filter Data
+  observeEvent(input$reset2, {
+    updateSliderInput(session, "CncldistSelect", value = c(min(as.numeric(cncldist), na.rm=T), max(as.numeric(cncldist), na.rm=T)))
     updateCheckboxGroupInput(session, "HealthSelect", selected = c("Fair","Good"))
     showNotification("You have successfully reset the filters", type = "message")
   })
