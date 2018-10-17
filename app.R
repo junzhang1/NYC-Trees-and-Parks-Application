@@ -143,7 +143,7 @@ server <- function(input, output,session = session) {
     # Build API Query with proper encodes
     # If I don't add the filter the url works.
     boroughFilter <- ifelse(length(input$BoroughSelect) > 0, paste0("%20AND%20%22BOROUGH%22%20IN%20(%27", paste0(gsub(" " ,"%20", input$BoroughSelect), collapse = "%27,%27"), "%27)"), "")
-    url <- paste0("https://data.cityofnewyork.us/resource/8ph2-z4iu.json?$query=SELECT%20GISPROPNUM,the_geom,PROPNAME,SITENAME,LOCATION,ACRES,SUBCATEGOR,BOROUGH%20WHERE%20RETIRED=%27False%27AND%20ACRES >= '", input$AcresSelect[1], "' AND ACRES <= '", input$AcresSelect[2], "'", boroughFilter)
+    url <- paste0("https://data.cityofnewyork.us/resource/8ph2-z4iu.geojson?$query=SELECT%20GISPROPNUM,the_geom,PROPNAME,SITENAME,LOCATION,ACRES,SUBCATEGOR,BOROUGH%20WHERE%20RETIRED=%27False%27AND%20ACRES >= '", input$AcresSelect[1], "' AND ACRES <= '", input$AcresSelect[2], "'", boroughFilter)
 
     print(url)
     
@@ -168,7 +168,7 @@ server <- function(input, output,session = session) {
     # Build API Query with proper encodes
     # If I don't add the filter the url works.
     healthFilter <- ifelse(length(input$HealthSelect) > 0, paste0("%20AND%20%22health%22%20IN%20(%27", paste0(gsub(" " ,"%20", input$HealthSelect), collapse = "%27,%27"), "%27)"), "")
-    url2 <- paste0("https://data.cityofnewyork.us/resource/5rq2-4hqu.json?$query=SELECT%20created_at,tree_id,block_id,tree_dbh,health,spc_latin,spc_common,problems,address,zipcode,zip_city,state,Latitude,longitude,x_sp,y_sp%20WHERE%20curb_loc=%27OnCurb%27AND%20status=%27Alive%27AND%20tree_dbh >= '", input$DBHSelect[1], "' AND tree_dbh <= '", input$DBHSelect[2], "'", healthFilter)
+    url2 <- paste0("https://data.cityofnewyork.us/resource/5rq2-4hqu.geojson?$query=SELECT%20created_at,tree_id,block_id,tree_dbh,health,spc_latin,spc_common,problems,address,zipcode,zip_city,state,Latitude,longitude,x_sp,y_sp%20WHERE%20curb_loc=%27OnCurb%27AND%20status=%27Alive%27AND%20tree_dbh >= '", input$DBHSelect[1], "' AND tree_dbh <= '", input$DBHSelect[2], "'", healthFilter)
     print(url2)
     
     # Load and mutate data
