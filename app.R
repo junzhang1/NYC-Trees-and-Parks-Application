@@ -243,8 +243,6 @@ server <- function(input, output,session = session) {
     map2 <- load311b()
 
     # Build Map
-    pal <- colorFactor(topo.colors(5),domain=load311$BOROUGH)
-    
     leaflet() %>%
       addProviderTiles(providers$Wikimedia, group = "Base", options = providerTileOptions(noWrap = TRUE)) %>%
       addProviderTiles(providers$Stamen.TonerLite, group = "TonerLite", options = providerTileOptions(noWrap = TRUE)) %>%
@@ -255,10 +253,7 @@ server <- function(input, output,session = session) {
       # Add points "trees".
       addMarkers(data = map2) %>%
       # Add polygons "parks".
-      addPolygons(data = map1,smoothFactor = 0.2, fillOpacity = 1,color=~pal(BOROUGH))
-      # Add legend.
-      addLegend(position = "bottomright" , pal = pal, values = load311$BOROUGH, title = "Borough", 
-            opacity = 1)
+      addPolygons(data = map1,smoothFactor = 0.2, fillOpacity = 1)
   })
   
   
@@ -285,7 +280,6 @@ server <- function(input, output,session = session) {
     showNotification("You have successfully reset the filters", type = "message")
   })
 }
-
 
 # Run the application 
 shinyApp(ui = ui, server = server, enableBookmarking = "url")
