@@ -51,6 +51,18 @@ acres <- sort(ckanUniques("8ph2-z4iu", "ACRES")$ACRES)
 health <- sort(ckanUniques("5rq2-4hqu", "health")$health)
 treedbh<- sort(ckanUniques("5rq2-4hqu", "tree_dbh")$tree_dbh)
 
+borough <- borough %>%
+  as_tibble() %>%
+  mutate(
+    # Change borough to full text
+    BOROUGH = case_when(
+      value == "Q" ~ "Queens",
+      value == "B" ~ "Brooklyn",
+      value == "M" ~ "Manhattan",
+      value == "X" ~ "Bronx",
+      value == "R" ~ "Staten Island",
+      TRUE ~ as.character(value)
+    ))
 
 # Define UI for application
 ui <- navbarPage("NYC Trees and Parks",
@@ -61,15 +73,17 @@ ui <- navbarPage("NYC Trees and Parks",
                               # Borough select
                               selectInput("BoroughSelect",
                                           "Borough:",
-                                          choices = borough[borough!= ""],
+                                          choices = borough$BOROUGH,
                                           multiple = TRUE,
                                           selectize = TRUE,
                                           selected = c("Queens", "Brooklyn", "Manhattan")),
-
-                              # Health select
-                              checkboxGroupInput("HealthSelect", "Health:",
-                                                 choices = health[health!= ""],
-                                                 selected = c("Fair","Good")),
+                              # Acres select
+                              sliderInput("AcresSelect",
+                                          "Acres:",
+                                          min = min(as.numeric(acres), na.rm=T),
+                                          max = max(as.numeric(acres), na.rm=T),
+                                          value = c(min(as.numeric(acres), na.rm=T), max(as.numeric(acres), na.rm=T)),
+                                          step = 1),
 
                               # Reset select
                               actionButton("reset", "Reset Filters", icon = icon("refresh"))
@@ -87,14 +101,11 @@ ui <- navbarPage("NYC Trees and Parks",
                  tabPanel("Plot",
                           sidebarLayout(
                             sidebarPanel(
-                              # Acres select
-                              sliderInput("AcresSelect",
-                                          "Acres:",
-                                          min = min(as.numeric(acres), na.rm=T),
-                                          max = max(as.numeric(acres), na.rm=T),
-                                          value = c(min(as.numeric(acres), na.rm=T), max(as.numeric(acres), na.rm=T)),
-                                          step = 1),
-                              
+
+                              # Health select
+                              checkboxGroupInput("HealthSelect", "Health:",
+                                                 choices = health,
+                                                 selected = c("Fair","Good")),
                               # Tree Diameter at Breast Height Select
                               sliderInput("DBHSelect",
                                           "Tree DBH:",
@@ -130,8 +141,11 @@ server <- function(input, output,session = session) {
   load311 <- reactive({
     
     # Build API Query with proper encodes
-    url <- paste0("https://data.cityofnewyork.us/resource/8ph2-z4iu.json?$select=GISPROPNUM,OMPPROPID,PROPNAME,the_geom,SITENAME,LOCATION,ACRES,SUBCATEGOR,COMMUNITYB,BOROUGH where=RETIRED='FALSE'")
-    # print(url)
+    # If I don't add the filter the url works.
+    boroughFilter <- ifelse(length(input$BoroughSelect) > 0, paste0("%20AND%20%22BOROUGH%22%20IN%20(%27", paste0(gsub(" " ,"%20", input$BoroughSelect), collapse = "%27,%27"), "%27)"), "")
+    url <- paste0("https://data.cityofnewyork.us/resource/8ph2-z4iu.json?$query=SELECT%20GISPROPNUM,the_geom,PROPNAME,SITENAME,LOCATION,ACRES,SUBCATEGOR,BOROUGH%20WHERE%20RETIRED=%27False%27AND%20ACRES >= '", input$AcresSelect[1], "' AND ACRES <= '", input$AcresSelect[2], "'", boroughFilter)
+
+    print(url)
     
     # Load and clean data
     dat311 <- ckanSQL(url) %>%
@@ -145,14 +159,24 @@ server <- function(input, output,session = session) {
           BOROUGH == "R" ~ "Staten Island",
           TRUE ~ as.character(BOROUGH)
       ))
+
     return(dat311)
   }
   )
   
   load311b <- reactive({
     # Build API Query with proper encodes
-    url2 <- paste0("https://data.cityofnewyork.us/resource/5rq2-4hqu.json?$select=created_at,tree_id,block_id,the_geom,tree_dbh,health,spc_latin,spc_common,steward,guards,sidewalk,user_type,problems,address,zipcode,zip_city,cb_num,borocode,boroname,st_assem,st_senate,nta_name,state,Latitude,longitude,x_sp,y_sp where=curb_loc='OnCurb' AND status='Alive'")
+    # If I don't add the filter the url works.
+    healthFilter <- ifelse(length(input$HealthSelect) > 0, paste0("%20AND%20%22health%22%20IN%20(%27", paste0(gsub(" " ,"%20", input$HealthSelect), collapse = "%27,%27"), "%27)"), "")
+    url2 <- paste0("https://data.cityofnewyork.us/resource/5rq2-4hqu.json?$query=SELECT%20created_at,tree_id,block_id,tree_dbh,health,spc_latin,spc_common,problems,address,zipcode,zip_city,state,Latitude,longitude,x_sp,y_sp%20WHERE%20curb_loc=%27OnCurb%27AND%20status=%27Alive%27AND%20tree_dbh >= '", input$DBHSelect[1], "' AND tree_dbh <= '", input$DBHSelect[2], "'", healthFilter)
+    print(url2)
+    
+    # Load and mutate data
     dat311b <-ckanSQL(url2) %>%
+      mutate(
+             tree_dbh = as.numeric(tree_dbh),
+             tree_id = as.factor(tree_id),
+             spc_common = as.character(spc_common))
     return(dat311b)
   }
   )
@@ -166,9 +190,9 @@ server <- function(input, output,session = session) {
   # Boxplot showing distribution of diameter at breast height by species
   output$plot_dbh <- renderPlotly({
     dat <- load311b() %>%
-      filter(treedbh != 0)
+      filter(tree_dbh != 0)
     ggplotly(
-      ggplot(dat, aes(x = spc_common, y = treedbh)) + geom_boxplot() + 
+      ggplot(dat, aes(x = spc_common, y = tree_dbh)) + geom_boxplot() + 
         theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=0.5)) + 
         ggtitle("Distribution of Diameter at Breast Height by Species") + xlab("Common Name") + ylab("Diameter at Breast Height")
     )
@@ -188,14 +212,14 @@ server <- function(input, output,session = session) {
   output$table <- DT::renderDataTable({
     dat311b <- load311b()
     
-    subset(dat311b, select = c(tree_id,tree_dbh,health,spc_common,address,zipcode,Latitude,longitude,))
-  })
+    subset(dat311b, select = c(tree_id,tree_dbh,health,spc_common,address,zipcode,Latitude,longitude))
+  }, filter = 'top', options = list(scrollX = TRUE, pageLength = 10))
   
   # Map
   output$leaflet <- renderLeaflet({
     # Load green infrastructure filtered data
     map1 <- load311()
-    
+    map2 <- load311b()
     # Build Map
     leaflet() %>%
       addProviderTiles(providers$Wikimedia, group = "Base", options = providerTileOptions(noWrap = TRUE)) %>%
@@ -203,16 +227,15 @@ server <- function(input, output,session = session) {
       addLayersControl(
         baseGroups = c("Base", "TonerLite"),
         options = layersControlOptions(collapsed = FALSE))%>%
-      setView(-73.0000, 40.4680, 10)%>%
+    
       # Add points "trees".
-      addMarkers(data = map1)%>%
+      # addMarkers(data = map2)%>%
       # Add polygons "parks".
       addPolygons(data = map1,color=~pal(PROPNAME))
     
   })
   
 
-  
   # Download data in the datatable
   output$downloadData <- downloadHandler(
     filename = function() {
