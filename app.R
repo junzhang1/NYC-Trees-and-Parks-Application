@@ -102,7 +102,7 @@ ui <- navbarPage("NYC Trees and Parks Zones",
                             sidebarPanel(
 
                               # Health select
-                              checkboxGroupInput("HealthSelect", "Health:",
+                              checkboxGroupInput("HealthSelect", "Health Condition:",
                                                  choices = health,
                                                  selected = c("Fair","Good")),
                               # Council District select
@@ -195,6 +195,7 @@ server <- function(input, output,session = session) {
              tree_dbh = as.numeric(tree_dbh),
              tree_id = as.factor(tree_id),
              spc_common = as.character(spc_common),
+             zipcode = as.numeric(zipcode),
              longitude = as.numeric(longitude),
              Latitude = as.numeric(Latitude)
       )
@@ -243,6 +244,7 @@ server <- function(input, output,session = session) {
     map2 <- load311b()
 
     # Build Map
+    pal <- colorFactor(c("#ed3131", "#8bf738", "#42f7c7", "#6e67fc", "#f762a0"),c("Brooklyn", "Manhattan", "Queens", "Staten Island", "Bronx"))
     leaflet() %>%
       addProviderTiles(providers$Wikimedia, group = "Base", options = providerTileOptions(noWrap = TRUE)) %>%
       addProviderTiles(providers$Stamen.TonerLite, group = "TonerLite", options = providerTileOptions(noWrap = TRUE)) %>%
@@ -251,9 +253,12 @@ server <- function(input, output,session = session) {
         options = layersControlOptions(collapsed = FALSE)) %>%
     
       # Add points "trees".
-      addMarkers(data = map2) %>%
+      addMarkers(data = map2, popup = ~htmlEscape(spc_common)) %>%
       # Add polygons "parks".
-      addPolygons(data = map1,smoothFactor = 0.2, fillOpacity = 1)
+      addPolygons(data = map1,smoothFactor = 0.2, fillOpacity = 1,color=~pal(BOROUGH)) %>%
+      # Add legend.
+      addLegend(position = "bottomright" , pal = pal, values = map1$BOROUGH, title = "Borough", 
+                opacity = 1)
   })
   
   

@@ -1,0 +1,12 @@
+name: project2
+title: project2
+username:
+account: junzhang1
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 520102
+bundleId: 1650284
+url: https://junzhang1.shinyapps.io/project2/
+when: 1539895360.59414
+asMultiple: FALSE
+asStatic: FALSE
