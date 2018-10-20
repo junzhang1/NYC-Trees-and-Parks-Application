@@ -257,6 +257,7 @@ server <- function(input, output,session = session) {
       # Add polygons "parks".
       addPolygons(data = map1,smoothFactor = 0.2, fillOpacity = 1,color=~pal(BOROUGH)) %>%
       # Add legend.
+      # This dataset isn't really the Borough's its the park. I understand that you're coloring it by this, but since this dataset a label like "Park Zone by Borough" would be a bit more discriptive.
       addLegend(position = "bottomright" , pal = pal, values = map1$BOROUGH, title = "Borough", 
                 opacity = 1)
   })
