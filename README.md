@@ -1,4 +1,4 @@
-# project2
+# NYC Trees and Parks Application
 
 
 The application is about NYC trees and parks. I used two data, trees data and parks data, to build the app.
